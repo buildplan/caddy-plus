@@ -1,0 +1,45 @@
+name: Check for New Cloudflare Plugin Tag
+
+on:
+  schedule:
+    - cron: '10 3 * * *' # Runs at 03:10 daily
+  workflow_dispatch:
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest Cloudflare plugin tag
+        id: get_tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fetch the first (latest) tag from the tags API
+          LATEST_TAG=$(gh api /repos/caddy-dns/cloudflare/tags --jq '.[0].name')
+          echo "Found tag: $LATEST_TAG"
+          echo "LATEST_TAG=${LATEST_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Check if tag is new by using it as a cache key
+        id: check
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: cloudflare-tag-${{ steps.get_tag.outputs.LATEST_TAG }}
+
+      - name: Create cache marker if new tag
+        if: steps.check.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .cache
+          echo "${{ steps.get_tag.outputs.LATEST_TAG }}" > .cache/cf-tag
+
+      - name: Trigger build workflow if new tag found
+        if: steps.check.outputs.cache-hit != 'true'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: cloudflare-release

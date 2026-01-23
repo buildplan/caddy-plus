@@ -1,0 +1,42 @@
+name: Check for New Caddy Release
+
+on:
+  schedule:
+    - cron: '5 3 * * *' # Runs at 03:05 daily
+  workflow_dispatch:
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for new release
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 1. Get Upstream Caddy Version (e.g., v2.9.1)
+          UPSTREAM_TAG=$(gh api /repos/caddyserver/caddy/releases/latest --jq .tag_name)
+          echo "Upstream is: $UPSTREAM_TAG"
+          
+          # 2. Check if there's already a released tag starting with this version.
+          # Using --json ensures we get the full name without truncation
+          if gh release list --json tagName --jq '.[].tagName' | grep -q "^${UPSTREAM_TAG}"; then
+            echo "Release for ${UPSTREAM_TAG} already exists in this repo. Skipping."
+            echo "trigger=false" >> $GITHUB_OUTPUT
+          else
+            echo "New upstream release ${UPSTREAM_TAG} found! Triggering build."
+            echo "trigger=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger build workflow
+        if: steps.check.outputs.trigger == 'true'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: caddy-release
