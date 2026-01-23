@@ -268,7 +268,7 @@ docker exec caddy caddy crowdsec check 1.2.3.4
 docker exec caddy caddy crowdsec health
 ```
 
-```bash
+```text
 $ docker exec caddy caddy crowdsec --help
 
 Commands related to the CrowdSec integration (experimental)
@@ -302,7 +302,7 @@ For documentation on **Docker Proxy labels**, visit: [https://github.com/lucaslo
 
 caddy-docker-proxy extends caddy's CLI with the command `caddy docker-proxy`.
 
-```bash
+```text
 $ docker exec caddy caddy help docker-proxy
 
 Usage:
