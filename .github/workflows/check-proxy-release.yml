@@ -2,7 +2,7 @@ name: Check for New Proxy Release
 
 on:
   schedule:
-    - cron: '10 3 * * *' # Runs at 03:10 daily
+    - cron: '15 3 * * *' # Runs at 03:15 daily
   workflow_dispatch:
 
 jobs:
