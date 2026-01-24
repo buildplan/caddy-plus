@@ -30,7 +30,15 @@ This setup provides a fully automated, secure reverse proxy stack:
 
 Follow these steps to integrate this Caddy image into your Docker setup.
 
-### Step 1: Deploy Caddy and CrowdSec
+### Step 1: Create the Network
+
+Create the network **externally** first. This ensures the network name is exactly `caddy_net` and prevents Docker Compose from adding random prefixes (like `myproject_caddy_net`) that break the proxy discovery.
+
+```bash
+docker network create caddy_net
+```
+
+### Step 2: Deploy Caddy and CrowdSec
 
 In your `docker-compose.yml`, use the image `ghcr.io/buildplan/caddy-plus:latest`.
 
@@ -49,7 +57,7 @@ services:
       - "443:443"
       - "443:443/udp" # HTTP/3 Support
     environment:
-      # Required: Tells Caddy which network to proxy traffic through
+      # EXACT MATCH: Must match the external network name from Step 1
       - CADDY_INGRESS_NETWORKS=caddy_net
       # Cloudflare Token for DNS challenges & Real IP resolution
       - CF_API_TOKEN=your_cloudflare_token
@@ -106,14 +114,14 @@ services:
 
 networks:
   caddy_net:
-    external: true
+    external: true # <--- This prevents Docker from renaming the network
 
 volumes:
   caddy_data:
   crowdsec-db:
 ```
 
-### Step 2: Configure CrowdSec Log Reading
+### Step 3: Configure CrowdSec Log Reading
 
 You need to tell CrowdSec to read the file that Caddy is writing to.
 
@@ -135,7 +143,7 @@ touch caddy_logs/access.log
 chmod 666 caddy_logs/access.log
 ```
 
-### Step 3: Get a Bouncer API Key
+### Step 4: Get a Bouncer API Key
 
 Your Caddy bouncer needs a key to talk to the CrowdSec agent.
 Start the CrowdSec container, then run:
@@ -150,7 +158,7 @@ Copy the API key generated and paste it into the `caddy.crowdsec.api_key` label 
 
 To use the WAF features, enable the AppSec engine in CrowdSec.
 
-1. **Create the AppSec config:** Inside your mounted CrowdSec config folder (e.g., `./crowdsec-config/acquis.d/`), create a file named `appsec.yaml`:
+* **Create the AppSec config:** Inside your mounted CrowdSec config folder (e.g., `./crowdsec-config/acquis.d/`), create a file named `appsec.yaml`:
 
 ```yaml
 # ./crowdsec-config/acquis.d/appsec.yaml
@@ -162,7 +170,8 @@ labels:
   type: appsec
 ```
 
-1. **Restart CrowdSec:**
+
+* **Restart CrowdSec:**
 
 ```bash
 docker restart crowdsec
@@ -173,6 +182,8 @@ docker restart crowdsec
 With `caddy-docker-proxy`, you add labels to the containers you want to expose.
 
 **Crucial:** You must add `caddy.log.output` to your service labels. This tells Caddy to write the access logs for *this specific site* to the default log file we configured in Step 1.
+
+**DNS Tip:** To avoid manually creating DNS records for every new service, add a wildcard `A` record (`*`) in Cloudflare pointing to your server IP.
 
 Here is an example `whoami` service using the **Cloudflare DNS Challenge**:
 
@@ -205,9 +216,11 @@ services:
       
       # 6. Reverse Proxy
       caddy.route.2_reverse_proxy: "{{upstreams 80}}"
-      
-      # 7. Network Helper
-      caddy_ingress_network: "caddy_net"
+
+networks:
+  caddy_net:
+    external: true
+
 ```
 
 **Explanation of Labels:**
