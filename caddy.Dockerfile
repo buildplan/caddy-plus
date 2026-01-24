@@ -46,6 +46,9 @@ RUN apk add --no-cache ca-certificates tzdata mailcap
 
 COPY --from=builder /go/bin/caddy /usr/bin/caddy
 
+# Forces Caddy to start in Docker Proxy mode by default
+CMD ["caddy", "docker-proxy"]
+
 # Metadata
 LABEL org.opencontainers.image.title="cfs-caddy" \
       org.opencontainers.image.description="Custom Caddy with CrowdSec, Caddy-Docker-Proxy ,Cloudflare DNS, and Cloudflare IP Source" \
