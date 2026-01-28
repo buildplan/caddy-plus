@@ -14,9 +14,6 @@ ARG CF_VERSION
 ARG TARGETARCH
 ARG TARGETOS
 
-# Install git
-RUN apk add --no-cache git
-
 # Install git and xcaddy
 RUN apk add --no-cache git && \
     go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
