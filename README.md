@@ -49,7 +49,6 @@ In your `docker-compose.yml`, use the image `ghcr.io/buildplan/caddy-plus:latest
 **Critical Requirement:** You must mount the Docker socket so the proxy can detect your containers. You also need a shared volume for logs so CrowdSec can read Caddy's access logs.
 
 > **Note:** You do **not** need to mount a `Caddyfile`. We configure global settings (like API keys) using labels on the Caddy container itself.
-
 > **Note on Ports:** Since we use Cloudflare DNS for SSL challenges, **Port 80 is optional**. You only need Port 443 open to accept traffic from Cloudflare. This can be done for UFW based firewall with:
 
 ```bash
@@ -60,7 +59,7 @@ for ip in $(curl -s https://www.cloudflare.com/ips-v4); do sudo ufw allow from $
 for ip in $(curl -s https://www.cloudflare.com/ips-v6); do sudo ufw allow from $ip to any port 443; done
 ```
 
-#### Example docker compose:
+#### Example docker compose
 
 ```yaml
 services:
@@ -303,7 +302,8 @@ Visit your site to generate some logs or from CLI:
 curl -I [https://whoami.example.com](https://whoami.example.com)
 ```
 
-**Check CrowdSec Metrics:**
+#### Check CrowdSec Metrics
+
 Verify that CrowdSec is reading the logs and AppSec is receiving data.
 
 ```bash
@@ -313,14 +313,14 @@ docker exec crowdsec cscli metrics
 * Look for **Acquisition Metrics**: Should show `file:/var/log/caddy/access.log` with "Lines read" > 0.
 * Look for **Parser Metrics**: Should show `crowdsecurity/caddy-logs`.
 
-**Check OIDC**
+#### Check OIDC
 
 * If OIDC is configured, you should be redirected to your login provider.
 * After login, you should see your app.
 * `whoami` should display headers like `X-Auth-Request-Email`.
 
+#### Check Status
 
-**Check Status:**
 Since this container runs multiple processes, use `supervisorctl` to check health:
 
 ```bash
@@ -443,3 +443,18 @@ CADDY_DOCKER_NO_SCOPE=<bool, default scope used>
 * **[Cloudflare DNS](https://github.com/caddy-dns/cloudflare):** DNS provider for solving ACME challenges.
 * **[Cloudflare IP](https://github.com/WeidiDeng/caddy-cloudflare-ip):** Real visitor IP restoration when behind Cloudflare Proxy.
 * **[OAuth2 Proxy](https://www.google.com/url?sa=E&source=gmail&q=https://oauth2-proxy.github.io/oauth2-proxy/):** Identity aware proxy for OIDC authentication.
+
+## Credits & Licenses
+
+This project is licensed under the [Apache License 2.0](LICENSE).
+
+It integrates the following open-source software, which are gratefully acknowledged:
+
+* **[Caddy](https://github.com/caddyserver/caddy)** - Apache 2.0
+* **[OAuth2 Proxy](https://github.com/oauth2-proxy/oauth2-proxy)** - MIT License
+* **[Caddy Docker Proxy](https://github.com/lucaslorentz/caddy-docker-proxy)** - MIT License
+* **[CrowdSec Caddy Bouncer](https://github.com/hslatman/caddy-crowdsec-bouncer)** - Apache 2.0
+* **[Caddy Cloudflare DNS](https://github.com/caddy-dns/cloudflare)** - Apache 2.0
+* **[Supervisor](https://github.com/Supervisor/supervisor)** - Supervisor License (BSD-like)
+
+*For full license text, please visit the respective repositories linked above.*
