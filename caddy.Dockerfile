@@ -50,6 +50,7 @@ RUN apk add --no-cache ca-certificates tzdata mailcap supervisor
 # Copy binaries
 COPY --from=builder /go/bin/caddy /usr/bin/caddy
 COPY --from=oauth_source /bin/oauth2-proxy /usr/bin/oauth2-proxy
+COPY supervisord.conf /etc/supervisord.conf
 
 # Run Supervisor (which runs Caddy + OAuth)
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
