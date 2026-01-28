@@ -13,4 +13,4 @@ if [ -z "$OAUTH2_PROXY_CLIENT_ID" ]; then
 fi
 
 # If config exists, start normally
-exec /usr/bin/oauth2-proxy --http-address="127.0.0.1:4180" --upstream="static://202"
+exec /usr/bin/oauth2-proxy --http-address="127.0.0.1:4180" --upstream="static://202" --reverse-proxy=true
