@@ -47,12 +47,18 @@ ARG OAUTH_VERSION
 # Install dependencies
 RUN apk add --no-cache ca-certificates tzdata mailcap supervisor
 
+ENV PYTHONWARNINGS="ignore:pkg_resources is deprecated as an API"
+
 # Copy binaries
 COPY --from=builder /go/bin/caddy /usr/bin/caddy
 COPY --from=oauth_source /bin/oauth2-proxy /usr/bin/oauth2-proxy
-COPY supervisord.conf /etc/supervisord.conf
 
-# Run Supervisor (which runs Caddy + OAuth)
+# Copy Config & Scripts
+COPY supervisord.conf /etc/supervisord.conf
+COPY start-oauth.sh /usr/bin/start-oauth.sh
+RUN chmod +x /usr/bin/start-oauth.sh
+
+# Run Supervisor
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
 
 # Metadata
