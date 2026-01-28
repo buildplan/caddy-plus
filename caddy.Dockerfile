@@ -46,7 +46,8 @@ ARG OAUTH_VERSION
 
 # Install dependencies
 RUN apk add --no-cache ca-certificates tzdata mailcap python3 py3-pip && \
-    pip install supervisor --break-system-packages
+    pip install supervisor --break-system-packages --no-cache-dir && \
+    apk del py3-pip
 
 # Copy binaries
 COPY --from=builder /go/bin/caddy /usr/bin/caddy
