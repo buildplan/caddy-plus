@@ -45,9 +45,8 @@ ARG CF_VERSION
 ARG OAUTH_VERSION
 
 # Install dependencies
-RUN apk add --no-cache ca-certificates tzdata mailcap supervisor
-
-ENV PYTHONWARNINGS="ignore:pkg_resources is deprecated as an API"
+RUN apk add --no-cache ca-certificates tzdata mailcap python3 py3-pip && \
+    pip install supervisor --break-system-packages
 
 # Copy binaries
 COPY --from=builder /go/bin/caddy /usr/bin/caddy
