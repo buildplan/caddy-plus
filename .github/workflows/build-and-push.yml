@@ -122,7 +122,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.CADDY_VERSION }}-b${{ env.BOUNCER_VERSION }}-cf${{ env.CF_VERSION }}-p-${{ env.PROXY_VERSION }}-oidc-${{ env.OAUTH_VERSION }}
-          name: "Caddy ${{ env.CADDY_VERSION }} + Bouncer ${{ env.BOUNCER_VERSION }} + CF ${{ env.CF_VERSION }} + PROXY ${{ env.PROXY_VERSION }}"
+          name: "Caddy ${{ env.CADDY_VERSION }} + Bouncer ${{ env.BOUNCER_VERSION }} + OAuth2 Proxy-${{ env.OAUTH_VERSION }} + CF ${{ env.CF_VERSION }} + PROXY ${{ env.PROXY_VERSION }}"
           body: |
             Automated build of Caddy v${{ env.CADDY_VERSION }} with CrowdSec Bouncer v${{ env.BOUNCER_VERSION }} Docker-Proxy v${{ env.PROXY_VERSION }} oauth2-proxy v${{ env.OAUTH_VERSION }} and Cloudflare DNS v${{ env.CF_VERSION }}.
 
