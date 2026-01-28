@@ -4,27 +4,31 @@
 [![CrowdSec Bouncer](https://img.shields.io/badge/CrowdSec-Bouncer-orange?style=flat&logo=shield&logoColor=white)](https://github.com/hslatman/caddy-crowdsec-bouncer)
 [![Docker Proxy](https://img.shields.io/badge/Docker-Proxy-blue?style=flat&logo=docker&logoColor=white)](https://github.com/lucaslorentz/caddy-docker-proxy)
 [![Cloudflare DNS](https://img.shields.io/badge/Cloudflare-DNS-F38020?style=flat&logo=cloudflare&logoColor=white)](https://github.com/caddy-dns/cloudflare)
+[![OAuth2 Proxy](https://img.shields.io/badge/OAuth2-Proxy-green?style=flat&logo=openid&logoColor=white)](https://github.com/oauth2-proxy/oauth2-proxy)
 
 [![Build and Push Caddy-plus](https://github.com/buildplan/caddy-plus/actions/workflows/build-and-push.yml/badge.svg)](https://github.com/buildplan/caddy-plus/actions/workflows/build-and-push.yml)
 
 A fully automated, secure reverse proxy stack in a single Docker image.
 
-**caddy-plus** integrates four components into one binary:
+**caddy-plus** integrates five key components into one container:
 
 1. **[Caddy:](https://caddyserver.com/)** The ultimate server with automatic HTTPS.
 2. **[Caddy Docker Proxy:](https://github.com/lucaslorentz/caddy-docker-proxy)** Auto-generates Caddy configuration from Docker labels (no manual Caddyfile editing).
 3. **[CrowdSec Bouncer:](https://github.com/hslatman/caddy-crowdsec-bouncer)** Adds IP blocking and a Web Application Firewall (WAF) to every site you host.
 4. **[Cloudflare DNS:](https://github.com/caddy-dns/cloudflare)** Enables DNS-01 challenges for Wildcard SSL certificates and internal servers.
+5. **[OAuth2 Proxy (OIDC):](https://oauth2-proxy.github.io/oauth2-proxy/)** Provides a "Zero Trust" authentication layer (SSO) for your applications using providers like PocketID, Google, or GitHub.
 
 The image is automatically rebuilt and updated on GHCR whenever there is a new release of Caddy or any of its plugins.
 
 ## How It Works
 
-This setup provides a fully automated, secure reverse proxy stack:
+This setup provides a fully automated, secure reverse proxy stack managed by **Supervisor**:
 
-1. **Dynamic Config (`caddy-docker-proxy`):** Caddy connects to the Docker socket. When you launch a new container with specific labels, Caddy automatically provisions SSL certificates (via HTTP or Cloudflare DNS) and routes traffic to it.
-2. **IP Blocker (`crowdsec`):** Acts like a front-desk security guard. It checks the IP of every visitor against CrowdSec's global blocklist before allowing access.
-3. **WAF (`appsec`):** Acts like a security team inside the building. It inspects the *content* of requests to block SQL injection, XSS, and known CVE exploits.
+1. **Process Management (`supervisord`):** The container runs Supervisor as the entry point. It manages two processes: `caddy` and `oauth2-proxy`. If you do not provide OAuth configuration, `oauth2-proxy` enters a dormant "sleep mode" to consume zero resources while keeping the container healthy.
+2. **Dynamic Config (`caddy-docker-proxy`):** Caddy connects to the Docker socket. When you launch a new container with specific labels, Caddy automatically provisions SSL certificates and routes traffic.
+3. **IP Blocker (`crowdsec`):** Acts like a front-desk security guard. It checks the IP of every visitor against CrowdSec's global blocklist.
+4. **WAF (`appsec`):** Inspects the *content* of requests to block SQL injection, XSS, and known exploits.
+5. **Authentication (`forward_auth`):** If enabled via labels, Caddy pauses the request, asks `oauth2-proxy` if the user is logged in, and redirects them to your Identity Provider (IdP) if they are not.
 
 ## How to Use This Image
 
@@ -38,13 +42,25 @@ Create the network **externally** first. This ensures the network name is exactl
 docker network create caddy_net
 ```
 
-### Step 2: Deploy Caddy and CrowdSec
+### Step 2: Deploy Caddy, OIDC, and CrowdSec
 
 In your `docker-compose.yml`, use the image `ghcr.io/buildplan/caddy-plus:latest`.
 
 **Critical Requirement:** You must mount the Docker socket so the proxy can detect your containers. You also need a shared volume for logs so CrowdSec can read Caddy's access logs.
 
 > **Note:** You do **not** need to mount a `Caddyfile`. We configure global settings (like API keys) using labels on the Caddy container itself.
+
+> **Note on Ports:** Since we use Cloudflare DNS for SSL challenges, **Port 80 is optional**. You only need Port 443 open to accept traffic from Cloudflare. This can be done for UFW based firewall with:
+
+```bash
+# Allow Cloudflare IPv4
+for ip in $(curl -s https://www.cloudflare.com/ips-v4); do sudo ufw allow from $ip to any port 443; done
+
+# Allow Cloudflare IPv6
+for ip in $(curl -s https://www.cloudflare.com/ips-v6); do sudo ufw allow from $ip to any port 443; done
+```
+
+#### Example docker compose:
 
 ```yaml
 services:
@@ -53,14 +69,32 @@ services:
     container_name: caddy
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "80:80"   # Optional: Only needed for http->https redirects
+      - "443:443" # Required: HTTPS Traffic
       - "443:443/udp" # HTTP/3 Support
     environment:
       # EXACT MATCH: Must match the external network name from Step 1
       - CADDY_INGRESS_NETWORKS=caddy_net
       # Cloudflare Token for DNS challenges & Real IP resolution
       - CF_API_TOKEN=your_cloudflare_token
+
+      # --- OIDC / OAUTH CONFIGURATION (Optional) ---
+      # If these are omitted, the OIDC process sleeps and Caddy acts as a standard proxy.
+      - OAUTH2_PROXY_PROVIDER=oidc
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=[https://auth.yourdomain.com](https://auth.yourdomain.com)
+      - OAUTH2_PROXY_CLIENT_ID=your_client_id
+      - OAUTH2_PROXY_CLIENT_SECRET=your_client_secret
+      # Generate with: python3 -c 'import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())'
+      - OAUTH2_PROXY_COOKIE_SECRET=your_32_byte_secret
+      # Allow redirects to your subdomains (prevents "Invalid Redirect" errors)
+      - OAUTH2_PROXY_WHITELIST_DOMAINS=.yourdomain.com
+      # (Optional) Share login cookie across all subdomains for SSO
+      - OAUTH2_PROXY_COOKIE_DOMAINS=.yourdomain.com
+      # (Optional) Skip the intermediate "Sign in with..." button
+      - OAUTH2_PROXY_SKIP_PROVIDER_BUTTON=true
+      # (Optional) Use PKCE (Recommended for security)
+      - OAUTH2_PROXY_CODE_CHALLENGE_METHOD=S256
+
     networks:
       - caddy_net
     volumes:
@@ -95,6 +129,29 @@ services:
       caddy_0.tls.dns: "cloudflare {env.CF_API_TOKEN}"
       caddy_0.tls.resolvers: "1.1.1.1"
 
+      # 5. Define Reusable Snippet: (oidc)
+      # This snippet handles the authentication logic
+      caddy_1: "(oidc)"
+      # Define a matcher: Protect everything EXCEPT the auth endpoints themselves
+      caddy_1.@protected: "not path /oauth2/*"
+      # Forward traffic to the internal oauth2-proxy process
+      caddy_1.forward_auth: "@protected localhost:4180"
+      caddy_1.forward_auth.uri: "/oauth2/auth"
+      caddy_1.forward_auth.header_up: "X-Real-IP {remote_host}"
+      caddy_1.forward_auth.copy_headers: "X-Auth-Request-User X-Auth-Request-Email"
+      
+      # THE REDIRECT MAGIC: If user is not logged in (401), redirect to sign-in page (302)
+      caddy_1.forward_auth.0_@error: "status 401"
+      caddy_1.forward_auth.0_handle_response: "@error"
+      caddy_1.forward_auth.0_handle_response.0_redir: "* /oauth2/sign_in?rd={scheme}://{host}{uri}"
+
+      # Handle the /oauth2/* endpoints locally (Sign-in, Callback, Sign-out)
+      caddy_1.handle: "/oauth2/*"
+      caddy_1.handle.reverse_proxy: "localhost:4180"
+      # IMPORTANT: Underscores are used for array syntax in labels
+      caddy_1.handle.reverse_proxy.header_up_0: "X-Real-IP {remote_host}"
+      caddy_1.handle.reverse_proxy.header_up_1: "X-Forwarded-Uri {uri}"
+
   crowdsec:
     image: crowdsecurity/crowdsec:latest
     container_name: crowdsec
@@ -107,7 +164,7 @@ services:
     volumes:
       - ./crowdsec-db:/var/lib/crowdsec/data
       - ./crowdsec-config:/etc/crowdsec
-      # Mount the custom acquisition file (Created in Step 2)
+      # Mount the custom acquisition file (Created in Step 3)
       - ./crowdsec-config/acquis.yaml:/etc/crowdsec/acquis.yaml
       # Shared logs volume
       - ./caddy_logs:/var/log/caddy
@@ -152,9 +209,9 @@ Start the CrowdSec container, then run:
 docker exec crowdsec cscli bouncers add caddy-bouncer
 ```
 
-Copy the API key generated and paste it into the `caddy.crowdsec.api_key` label in your `docker-compose.yml` (Step 1).
+Copy the API key generated and paste it into the `caddy.crowdsec.api_key` label in your `docker-compose.yml` (Step 2).
 
-### Step 4: Enable AppSec in CrowdSec
+### Step 5: Enable AppSec in CrowdSec
 
 To use the WAF features, enable the AppSec engine in CrowdSec.
 
@@ -170,14 +227,13 @@ labels:
   type: appsec
 ```
 
-
 * **Restart CrowdSec:**
 
 ```bash
 docker restart crowdsec
 ```
 
-### Step 5: Deploy a Protected Container
+### Step 6: Deploy a Protected Container
 
 With `caddy-docker-proxy`, you add labels to the containers you want to expose.
 
@@ -185,7 +241,7 @@ With `caddy-docker-proxy`, you add labels to the containers you want to expose.
 
 **DNS Tip:** To avoid manually creating DNS records for every new service, add a wildcard `A` record (`*`) in Cloudflare pointing to your server IP.
 
-Here is an example `whoami` service using the **Cloudflare DNS Challenge**:
+Here is an example `whoami` service using **Cloudflare DNS**, **CrowdSec**, and **OIDC Authentication**.
 
 ```yaml
 services:
@@ -197,9 +253,11 @@ services:
       # 1. Define the domain
       caddy: "whoami.example.com"
       
-      # 2. Use Cloudflare DNS Challenge
-      # This imports the snippet we defined on the main Caddy container
-      caddy.import: "cloudflare_tls"
+      # 2. Import Snippets
+      # This enables DNS-01 SSL
+      caddy.import_0: "cloudflare_tls"
+      # This enables OIDC Authentication
+      caddy.import_1: "oidc"
       
       # 3. Enable Logging (REQUIRED for CrowdSec)
       caddy.log.output: "file /var/log/caddy/access.log"
@@ -214,13 +272,12 @@ services:
       caddy.header.X-Frame-Options: "SAMEORIGIN"
       caddy.header.X-Content-Type-Options: "nosniff"
       
-      # 6. Reverse Proxy
+      # 6. Reverse Proxy (Protected by everything above)
       caddy.route.2_reverse_proxy: "{{upstreams 80}}"
 
 networks:
   caddy_net:
     external: true
-
 ```
 
 **Explanation of Labels:**
@@ -230,22 +287,23 @@ networks:
 * `caddy.import`: (Step 5) Applies that snippet to your specific container.
 * `caddy.log.output`: Enables access logging for this site.
 
-### Step 6: Verify
+**Identity Provider Configuration (PocketID/Google):**
+When using OIDC, you must whitelist the redirect URL in your IdP settings.
 
-1. **Start the stack:**
+* **Redirect URI Format:** `https://<YOUR_APP_DOMAIN>/oauth2/callback`
+* Example: `https://whoami.example.com/oauth2/callback`
 
-```bash
-docker compose up -d
-```
+### Step 7: Verify
 
-1. **Generate Traffic:**
-Visit your site to generate some logs.
+1. **Start the stack:** `docker compose up -d`
+
+Visit your site to generate some logs or from CLI:
 
 ```bash
 curl -I [https://whoami.example.com](https://whoami.example.com)
 ```
 
-1. **Check CrowdSec Metrics:**
+**Check CrowdSec Metrics:**
 Verify that CrowdSec is reading the logs and AppSec is receiving data.
 
 ```bash
@@ -255,13 +313,30 @@ docker exec crowdsec cscli metrics
 * Look for **Acquisition Metrics**: Should show `file:/var/log/caddy/access.log` with "Lines read" > 0.
 * Look for **Parser Metrics**: Should show `crowdsecurity/caddy-logs`.
 
+**Check OIDC**
+
+* If OIDC is configured, you should be redirected to your login provider.
+* After login, you should see your app.
+* `whoami` should display headers like `X-Auth-Request-Email`.
+
+
+**Check Status:**
+Since this container runs multiple processes, use `supervisorctl` to check health:
+
+```bash
+docker exec caddy supervisorctl status
+# Output should show:
+# caddy            RUNNING   pid 7, uptime 0:05:00
+# oauth2-proxy     RUNNING   pid 8, uptime 0:05:00
+```
+
 ---
 
 ## Debugging
 
 ### View the Generated Caddyfile
 
-Since the configuration is generated in-memory, you can't open a file to check it. Use this command to see what Caddy is actually using:
+Since the configuration is generated in-memory via Docker labels, you can't open a file to check it. Use this command to see what Caddy is actually using:
 
 ```bash
 docker logs caddy 2>&1 | grep "New Caddyfile" | tail -n 1 | sed 's/.*"caddyfile":"//' | sed 's/"}$//' | sed 's/\\n/\n/g' | sed 's/\\t/\t/g'
@@ -367,3 +442,4 @@ CADDY_DOCKER_NO_SCOPE=<bool, default scope used>
 * **[CrowdSec Bouncer](https://github.com/hslatman/caddy-crowdsec-bouncer):** Security module for Caddy.
 * **[Cloudflare DNS](https://github.com/caddy-dns/cloudflare):** DNS provider for solving ACME challenges.
 * **[Cloudflare IP](https://github.com/WeidiDeng/caddy-cloudflare-ip):** Real visitor IP restoration when behind Cloudflare Proxy.
+* **[OAuth2 Proxy](https://www.google.com/url?sa=E&source=gmail&q=https://oauth2-proxy.github.io/oauth2-proxy/):** Identity aware proxy for OIDC authentication.
