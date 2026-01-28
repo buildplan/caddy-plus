@@ -2,12 +2,12 @@ name: Build and Push Caddy-plus
 
 on:
   repository_dispatch:
-    types: [caddy-release, bouncer-release, docker-proxy-release,cloudflare-release]
+    types: [caddy-release, bouncer-release, docker-proxy-release, cloudflare-release, oauth-release]
   workflow_dispatch:
   push:
     branches:
       - 'main'
-      - 'dev'
+      - 'dev-*'
     paths:
       - '.github/workflows/build-and-push.yml'
       - 'caddy.Dockerfile'
@@ -58,6 +58,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Fetch Latest OAuth2-Proxy Version
+        run: |
+          OAUTH_TAG=$(gh api /repos/oauth2-proxy/oauth2-proxy/releases/latest --jq .tag_name)
+          # Remove 'v' prefix
+          OAUTH_VERSION=$(echo "${OAUTH_TAG}" | sed 's/^v//')
+          echo "OAUTH_VERSION=${OAUTH_VERSION}" >> $GITHUB_ENV
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Fetch Required Go Version
         id: go_version
         run: |
@@ -98,29 +107,31 @@ jobs:
             BOUNCER_VERSION=${{ env.BOUNCER_VERSION }}
             CF_VERSION=${{ env.CF_VERSION }}
             PROXY_VERSION=${{ env.PROXY_VERSION }}
+            OAUTH_VERSION=${{ env.OAUTH_VERSION }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.CADDY_VERSION }}
-            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.CADDY_VERSION }}-bouncer-${{ env.BOUNCER_VERSION }}-cf-${{ env.CF_VERSION }}-proxy-${{ env.PROXY_VERSION }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.CADDY_VERSION }}-bouncer-${{ env.BOUNCER_VERSION }}-cf-${{ env.CF_VERSION }}-proxy-${{ env.PROXY_VERSION }}-oidc-${{ env.OAUTH_VERSION }}
           labels: |
             org.opencontainers.image.title=${{ env.IMAGE_NAME }}
-            org.opencontainers.image.description=Custom Caddy with CrowdSec bouncer, Cloudflare DNS and Caddy-Docker-Proxy plugins
-            org.opencontainers.image.version=${{ env.CADDY_VERSION }}-bouncer-${{ env.BOUNCER_VERSION }}-cf-${{ env.CF_VERSION }}-proxy-${{ env.PROXY_VERSION }}
+            org.opencontainers.image.description=Custom Caddy with CrowdSec bouncer, oauth2-proxy, Cloudflare DNS and Caddy-Docker-Proxy plugins
+            org.opencontainers.image.version=${{ env.CADDY_VERSION }}-bouncer-${{ env.BOUNCER_VERSION }}-cf-${{ env.CF_VERSION }}-proxy-${{ env.PROXY_VERSION }}-oidc-${{ env.OAUTH_VERSION }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.CADDY_VERSION }}-b${{ env.BOUNCER_VERSION }}-cf${{ env.CF_VERSION }}-p-${{ env.PROXY_VERSION }}
+          tag_name: v${{ env.CADDY_VERSION }}-b${{ env.BOUNCER_VERSION }}-cf${{ env.CF_VERSION }}-p-${{ env.PROXY_VERSION }}-oidc-${{ env.OAUTH_VERSION }}
           name: "Caddy ${{ env.CADDY_VERSION }} + Bouncer ${{ env.BOUNCER_VERSION }} + CF ${{ env.CF_VERSION }} + PROXY ${{ env.PROXY_VERSION }}"
           body: |
-            Automated build of Caddy v${{ env.CADDY_VERSION }} with CrowdSec Bouncer v${{ env.BOUNCER_VERSION }} Docker-Proxy v${{ env.PROXY_VERSION }} and Cloudflare DNS v${{ env.CF_VERSION }}.
+            Automated build of Caddy v${{ env.CADDY_VERSION }} with CrowdSec Bouncer v${{ env.BOUNCER_VERSION }} Docker-Proxy v${{ env.PROXY_VERSION }} oauth2-proxy v${{ env.OAUTH_VERSION }} and Cloudflare DNS v${{ env.CF_VERSION }}.
 
             - **Image:** `ghcr.io/${{ github.repository_owner }}/caddy-plus:${{ env.CADDY_VERSION }}-bouncer-${{ env.BOUNCER_VERSION }}-cf-${{ env.CF_VERSION }}proxy-${{ env.PROXY_VERSION }}`
             - Caddy: https://github.com/caddyserver/caddy/releases/tag/v${{ env.CADDY_VERSION }}
             - Bouncer: https://github.com/hslatman/caddy-crowdsec-bouncer/releases/tag/v${{ env.BOUNCER_VERSION }}
             - Docker-Proxy: https://github.com/lucaslorentz/caddy-docker-proxy/releases/tag/v${{ env.PROXY_VERSION }}
             - Cloudflare-Plugin: https://github.com/caddy-dns/cloudflare
+            - oauth2-proxy: https://github.com/oauth2-proxy/oauth2-proxy/releases/tag/v${{ env.OAUTH_VERSION }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

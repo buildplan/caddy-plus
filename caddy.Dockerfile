@@ -1,11 +1,12 @@
 # 1. GLOBAL ARGS
 ARG GO_VERSION=1.25
 ARG CADDY_VERSION=2
+ARG OAUTH_VERSION=7.14.2
 
-# --- Stage 1: Builder ---
+# --- Stage 1: Builder (Caddy + Plugins) ---
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS builder
 
-# 2. REDECLARE ARGS FOR BUILDER
+# REDECLARE ARGS
 ARG CADDY_VERSION
 ARG PROXY_VERSION
 ARG BOUNCER_VERSION
@@ -22,7 +23,6 @@ RUN apk add --no-cache git && \
 
 WORKDIR /app
 
-# 3. Build with Cross-Compilation Support
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} xcaddy build v${CADDY_VERSION} \
     --output /go/bin/caddy \
     --with github.com/lucaslorentz/caddy-docker-proxy/v2@v${PROXY_VERSION} \
@@ -32,25 +32,30 @@ RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} xcaddy build v${CADDY_VERSION} \
     --with github.com/caddy-dns/cloudflare@v${CF_VERSION} \
     --with github.com/WeidiDeng/caddy-cloudflare-ip
 
-# --- Stage 2: Final Image ---
+# --- Stage 2: Oauth2-Proxy Source ---
+FROM quay.io/oauth2-proxy/oauth2-proxy:v${OAUTH_VERSION} AS oauth_source
+
+# --- Stage 3: Final Image ---
 FROM caddy:${CADDY_VERSION}-alpine
 
-# 4. REDECLARE ARGS FOR FINAL STAGE
 ARG CADDY_VERSION
 ARG PROXY_VERSION
 ARG BOUNCER_VERSION
 ARG CF_VERSION
+ARG OAUTH_VERSION
 
-# Install dependencies for Production
-RUN apk add --no-cache ca-certificates tzdata mailcap
+# Install dependencies
+RUN apk add --no-cache ca-certificates tzdata mailcap supervisor
 
+# Copy binaries
 COPY --from=builder /go/bin/caddy /usr/bin/caddy
+COPY --from=oauth_source /bin/oauth2-proxy /usr/bin/oauth2-proxy
 
-# Forces Caddy to start in Docker Proxy mode by default
-CMD ["caddy", "docker-proxy"]
+# Run Supervisor (which runs Caddy + OAuth)
+CMD ["supervisord", "-c", "/etc/supervisord.conf"]
 
 # Metadata
-LABEL org.opencontainers.image.title="cfs-caddy" \
-      org.opencontainers.image.description="Custom Caddy with CrowdSec, Caddy-Docker-Proxy ,Cloudflare DNS, and Cloudflare IP Source" \
+LABEL org.opencontainers.image.title="caddy-plus" \
+      org.opencontainers.image.description="Custom Caddy with CrowdSec, OAuth2 Proxy, Caddy-Docker-Proxy ,Cloudflare DNS, and Cloudflare IP Source" \
       org.opencontainers.image.source="https://github.com/buildplan/caddy-plus" \
-      org.opencontainers.image.version="${CADDY_VERSION}-b${BOUNCER_VERSION}-cf${CF_VERSION}-p${PROXY_VERSION}"
+      org.opencontainers.image.version="${CADDY_VERSION}-oidc${OAUTH_VERSION}-b${BOUNCER_VERSION}-cf${CF_VERSION}"
