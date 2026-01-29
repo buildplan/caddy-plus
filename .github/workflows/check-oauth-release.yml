@@ -9,37 +9,31 @@ jobs:
   check-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      contents: read
+      actions: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Get latest oauth2-proxy release tag
-        id: get_tag
-        run: |
-          # Fetch latest tag from the official repo
-          LATEST_TAG=$(gh api /repos/oauth2-proxy/oauth2-proxy/releases/latest --jq .tag_name)
-          echo "LATEST_TAG=${LATEST_TAG}" >> $GITHUB_OUTPUT
-
-      - name: Check if release tag is new
+      - name: Check for new release
         id: check
-        uses: actions/cache@v5
-        with:
-          path: .cache
-          key: oauth-release-${{ steps.get_tag.outputs.LATEST_TAG }}
-
-      - name: Create cache marker
-        if: steps.check.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p .cache
-          echo "${{ steps.get_tag.outputs.LATEST_TAG }}" > .cache/oauth-tag
+          UPSTREAM_TAG=$(gh api /repos/oauth2-proxy/oauth2-proxy/releases/latest --jq .tag_name)
+          VERSION=${UPSTREAM_TAG#v}
+          echo "Latest Upstream Version: $VERSION"
+          if gh release list --json tagName --jq '.[].tagName' | grep -q "oidc-${VERSION}"; then
+            echo "✅ Release containing oidc-${VERSION} already exists. Skipping build."
+            echo "trigger=false" >> $GITHUB_OUTPUT
+          else
+            echo "🚀 New OAuth version ${VERSION} detected (or not yet built)! Triggering build."
+            echo "trigger=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Trigger build workflow
-        if: steps.check.outputs.cache-hit != 'true'
+        if: steps.check.outputs.trigger == 'true'
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          # trigger in build-and-push.yml
           event-type: oauth-release
