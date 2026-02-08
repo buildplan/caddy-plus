@@ -80,7 +80,7 @@ services:
       # --- OIDC / OAUTH CONFIGURATION (Optional) ---
       # If these are omitted, the OIDC process sleeps and Caddy acts as a standard proxy.
       - OAUTH2_PROXY_PROVIDER=oidc
-      - OAUTH2_PROXY_OIDC_ISSUER_URL=[https://auth.yourdomain.com](https://auth.yourdomain.com)
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=https://auth.yourdomain.com
       - OAUTH2_PROXY_CLIENT_ID=your_client_id
       - OAUTH2_PROXY_CLIENT_SECRET=your_client_secret
       # Generate with: python3 -c 'import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())'
@@ -100,23 +100,23 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock # REQUIRED for auto-discovery
       - caddy_data:/data
       # Mount a volume for logs so CrowdSec can read them
-      - ./caddy_logs:/var/log/caddy 
-    
+      - ./caddy_logs:/var/log/caddy
+
     # GLOBAL CONFIGURATION VIA LABELS
     labels:
       caddy.email: "you@example.com"
-      
+
       # 1. Global Logging Configuration
       # We tell Caddy to write logs to a file that CrowdSec can see
       caddy.log.output: "file /var/log/caddy/access.log"
       caddy.log.format: "json"
       caddy.log.level: "INFO"
-      
+
       # 2. CrowdSec Configuration
       # This creates the global { crowdsec { ... } } block
       caddy.crowdsec.api_url: "http://crowdsec:8080"
       caddy.crowdsec.api_key: "YOUR_BOUNCER_KEY_HERE" # See Step 3
-      caddy.crowdsec.appsec_url: "http://crowdsec:7422" 
+      caddy.crowdsec.appsec_url: "http://crowdsec:7422"
 
       # 3. Cloudflare Trusted Proxies (Global Option)
       # This ensures CrowdSec sees real IPs, not Cloudflare's
@@ -138,7 +138,7 @@ services:
       caddy_1.forward_auth.uri: "/oauth2/auth"
       caddy_1.forward_auth.header_up: "X-Real-IP {remote_host}"
       caddy_1.forward_auth.copy_headers: "X-Auth-Request-User X-Auth-Request-Email"
-      
+
       # THE REDIRECT MAGIC: If user is not logged in (401), redirect to sign-in page (302)
       caddy_1.forward_auth.0_@error: "status 401"
       caddy_1.forward_auth.0_handle_response: "@error"
@@ -170,7 +170,7 @@ services:
 
 networks:
   caddy_net:
-    external: true # <--- This prevents Docker from renaming the network
+    external: true # <--- External network created in step 1
 
 volumes:
   caddy_data:
