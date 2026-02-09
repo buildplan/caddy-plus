@@ -89,6 +89,8 @@ services:
       - OAUTH2_PROXY_WHITELIST_DOMAINS=.yourdomain.com
       # (Optional) Share login cookie across all subdomains for SSO
       - OAUTH2_PROXY_COOKIE_DOMAINS=.yourdomain.com
+      # allow anyone who successfully logs in via your provider
+      - OAUTH2_PROXY_EMAIL_DOMAINS=*
       # (Optional) Skip the intermediate "Sign in with..." button
       - OAUTH2_PROXY_SKIP_PROVIDER_BUTTON=true
       # (Optional) Use PKCE (Recommended for security)
@@ -139,7 +141,7 @@ services:
       caddy_1.forward_auth.header_up: "X-Real-IP {remote_host}"
       caddy_1.forward_auth.copy_headers: "X-Auth-Request-User X-Auth-Request-Email"
 
-      # THE REDIRECT MAGIC: If user is not logged in (401), redirect to sign-in page (302)
+      # THE REDIRECT: If user is not logged in (401), redirect to sign-in page (302)
       caddy_1.forward_auth.0_@error: "status 401"
       caddy_1.forward_auth.0_handle_response: "@error"
       caddy_1.forward_auth.0_handle_response.0_redir: "* /oauth2/sign_in?rd={scheme}://{host}{uri}"
