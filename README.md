@@ -49,7 +49,7 @@ In your `docker-compose.yml`, use the image `ghcr.io/buildplan/caddy-plus:latest
 **Critical Requirement:** You must mount the Docker socket so the proxy can detect your containers. You also need a shared volume for logs so CrowdSec can read Caddy's access logs.
 
 > **Note:** You do **not** need to mount a `Caddyfile`. We configure global settings (like API keys) using labels on the Caddy container itself.
-> **Note on Ports:** Since we use Cloudflare DNS for SSL challenges, **Port 80 is optional**. You only need Port 443 open to accept traffic from Cloudflare. This can be done for UFW based firewall with:
+> **Note on Ports:** Since we use Cloudflare DNS for SSL challenges, **Port 80 is optional**. You only need Port 443 open to accept traffic from Cloudflare. If using UFW, allow Cloudflare IPs:
 
 ```bash
 # Allow Cloudflare IPv4
@@ -80,7 +80,7 @@ services:
       # --- OIDC / OAUTH CONFIGURATION (Optional) ---
       # If these are omitted, the OIDC process sleeps and Caddy acts as a standard proxy.
       - OAUTH2_PROXY_PROVIDER=oidc
-      - OAUTH2_PROXY_OIDC_ISSUER_URL=https://auth.yourdomain.com
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=https://auth.yourdomain.com/application/o/your-slug/
       - OAUTH2_PROXY_CLIENT_ID=your_client_id
       - OAUTH2_PROXY_CLIENT_SECRET=your_client_secret
       # Generate with: python3 -c 'import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())'
@@ -89,8 +89,13 @@ services:
       - OAUTH2_PROXY_WHITELIST_DOMAINS=.yourdomain.com
       # (Optional) Share login cookie across all subdomains for SSO
       - OAUTH2_PROXY_COOKIE_DOMAINS=.yourdomain.com
-      # allow anyone who successfully logs in via your provider
+      
+      # REQUIRED: Define allowed email domains or use * for all
       - OAUTH2_PROXY_EMAIL_DOMAINS=*
+      
+      # (Optional) Fix for Authentik "Email not verified" 500 error
+      # - OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL=true
+      
       # (Optional) Skip the intermediate "Sign in with..." button
       - OAUTH2_PROXY_SKIP_PROVIDER_BUTTON=true
       # (Optional) Use PKCE (Recommended for security)
@@ -216,6 +221,8 @@ Copy the API key generated and paste it into the `caddy.crowdsec.api_key` label 
 
 To use the WAF features, enable the AppSec engine in CrowdSec.
 
+Verify that CrowdSec's AppSec listener is running on port 7422. If this file is missing, Caddy will return a **502 Bad Gateway** because it cannot reach the WAF.
+
 * **Create the AppSec config:** Inside your mounted CrowdSec config folder (e.g., `./crowdsec-config/acquis.d/`), create a file named `appsec.yaml`:
 
 ```yaml
@@ -293,6 +300,7 @@ When using OIDC, you must whitelist the redirect URL in your IdP settings.
 
 * **Redirect URI Format:** `https://<YOUR_APP_DOMAIN>/oauth2/callback`
 * Example: `https://whoami.example.com/oauth2/callback`
+* **Regex Wildcard (Authentik):** `^https://.*\.yourdomain\.com/oauth2/callback$`
 
 ### Step 7: Verify
 
@@ -301,7 +309,7 @@ When using OIDC, you must whitelist the redirect URL in your IdP settings.
 Visit your site to generate some logs or from CLI:
 
 ```bash
-curl -I [https://whoami.example.com](https://whoami.example.com)
+curl -I https://whoami.example.com
 ```
 
 #### Check CrowdSec Metrics
@@ -436,6 +444,12 @@ CADDY_DOCKER_SCAN_STOPPED_CONTAINERS=<bool>
 CADDY_DOCKER_NO_SCOPE=<bool, default scope used>
 ```
 
+#### Troubleshooting "502 Bad Gateway"
+
+* **Check AppSec:** Did you skip Step 5? If `appsec` label is used but the listener isn't running, Caddy drops the connection.
+* **Check Host Binding:** Your app MUST listen on `0.0.0.0`, not `127.0.0.1`.
+* **Check Cloudflare SSL:** Ensure Cloudflare SSL/TLS mode is set to **Full (Strict)**. "Flexible" mode causes redirect loops.
+
 ---
 
 ## Included Plugins & Docs
@@ -444,7 +458,7 @@ CADDY_DOCKER_NO_SCOPE=<bool, default scope used>
 * **[CrowdSec Bouncer](https://github.com/hslatman/caddy-crowdsec-bouncer):** Security module for Caddy.
 * **[Cloudflare DNS](https://github.com/caddy-dns/cloudflare):** DNS provider for solving ACME challenges.
 * **[Cloudflare IP](https://github.com/WeidiDeng/caddy-cloudflare-ip):** Real visitor IP restoration when behind Cloudflare Proxy.
-* **[OAuth2 Proxy](https://www.google.com/url?sa=E&source=gmail&q=https://oauth2-proxy.github.io/oauth2-proxy/):** Identity aware proxy for OIDC authentication.
+* **[OAuth2 Proxy](https://oauth2-proxy.github.io/oauth2-proxy/):** Identity aware proxy for OIDC authentication.
 
 ## Credits & Licenses
 
