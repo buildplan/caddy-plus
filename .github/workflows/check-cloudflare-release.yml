@@ -19,26 +19,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Fetch the first (latest) tag from the tags API
-          LATEST_TAG=$(gh api /repos/caddy-dns/cloudflare/tags --jq '.[0].name')
-          echo "Found tag: $LATEST_TAG"
-          echo "LATEST_TAG=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          UPSTREAM_TAG=$(gh api /repos/caddy-dns/cloudflare/tags --jq '.[0].name')
+          VERSION=${UPSTREAM_TAG#v}
+          echo "Latest Upstream Version: $VERSION"
+          
+          # Check repo tags for 'cf{VERSION}' (e.g., cf0.2.3)
+          if gh release list --json tagName --jq '.[].tagName' | grep -q "cf${VERSION}"; then
+            echo "✅ Release containing cf${VERSION} already exists. Skipping build."
+            echo "trigger=false" >> $GITHUB_OUTPUT
+          else
+            echo "🚀 New Cloudflare version ${VERSION} detected! Triggering build."
+            echo "trigger=true" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Check if tag is new by using it as a cache key
-        id: check
-        uses: actions/cache@v5
-        with:
-          path: .cache
-          key: cloudflare-tag-${{ steps.get_tag.outputs.LATEST_TAG }}
-
-      - name: Create cache marker if new tag
-        if: steps.check.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p .cache
-          echo "${{ steps.get_tag.outputs.LATEST_TAG }}" > .cache/cf-tag
-
-      - name: Trigger build workflow if new tag found
-        if: steps.check.outputs.cache-hit != 'true'
+      - name: Trigger build workflow
+        if: steps.check.outputs.trigger == 'true'
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
