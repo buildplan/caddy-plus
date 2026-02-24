@@ -26,7 +26,7 @@ jobs:
           echo "Latest Upstream Version: $VERSION"
           
           # Checks repo tags for 'b{VERSION}-' (e.g., b0.10.0-)
-          if gh release list --json tagName --jq '.[].tagName' | grep -q "b${VERSION}-"; then
+          if gh release list --json tagName --jq '.[].tagName' | grep -q -- "-b${VERSION}-"; then
             echo "✅ Release containing b${VERSION}- already exists. Skipping build."
             echo "trigger=false" >> $GITHUB_OUTPUT
           else
