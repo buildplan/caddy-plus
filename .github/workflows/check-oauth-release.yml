@@ -22,7 +22,7 @@ jobs:
           UPSTREAM_TAG=$(gh api /repos/oauth2-proxy/oauth2-proxy/releases/latest --jq .tag_name)
           VERSION=${UPSTREAM_TAG#v}
           echo "Latest Upstream Version: $VERSION"
-          if gh release list --json tagName --jq '.[].tagName' | grep -q "oidc-${VERSION}"; then
+          if gh release list --json tagName --jq '.[].tagName' | grep -q -- "-oidc-${VERSION}$"; then
             echo "✅ Release containing oidc-${VERSION} already exists. Skipping build."
             echo "trigger=false" >> $GITHUB_OUTPUT
           else
