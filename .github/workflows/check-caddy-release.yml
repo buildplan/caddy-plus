@@ -24,7 +24,7 @@ jobs:
           UPSTREAM_TAG=$(gh api /repos/caddyserver/caddy/releases/latest --jq .tag_name)
           echo "Upstream is: $UPSTREAM_TAG"
           # Check if there's already a released tag starting with this version.
-          if gh release list --json tagName --jq '.[].tagName' | grep -q "^${UPSTREAM_TAG}"; then
+          if gh release list --json tagName --jq '.[].tagName' | grep -q "^${UPSTREAM_TAG}-"; then
             echo "Release for ${UPSTREAM_TAG} already exists in this repo. Skipping."
             echo "trigger=false" >> $GITHUB_OUTPUT
           else
