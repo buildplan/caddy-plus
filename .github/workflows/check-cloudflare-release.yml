@@ -24,7 +24,7 @@ jobs:
           echo "Latest Upstream Version: $VERSION"
           
           # Check repo tags for 'cf{VERSION}' (e.g., cf0.2.3)
-          if gh release list --json tagName --jq '.[].tagName' | grep -q "cf${VERSION}"; then
+          if gh release list --json tagName --jq '.[].tagName' | grep -q -- "-cf${VERSION}-"; then
             echo "✅ Release containing cf${VERSION} already exists. Skipping build."
             echo "trigger=false" >> $GITHUB_OUTPUT
           else
