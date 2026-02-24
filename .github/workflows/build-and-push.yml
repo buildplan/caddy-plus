@@ -128,7 +128,7 @@ jobs:
           body: |
             Automated build of Caddy v${{ env.CADDY_VERSION }} with CrowdSec Bouncer v${{ env.BOUNCER_VERSION }} Docker-Proxy v${{ env.PROXY_VERSION }} OAuth2 Proxy v${{ env.OAUTH_VERSION }} and Cloudflare DNS v${{ env.CF_VERSION }}.
 
-            - **Image:** `ghcr.io/${{ github.repository_owner }}/caddy-plus:${{ env.CADDY_VERSION }}-bouncer-${{ env.BOUNCER_VERSION }}-cf-${{ env.CF_VERSION }}proxy-${{ env.PROXY_VERSION }}`
+            - **Image:** `ghcr.io/${{ github.repository_owner }}/caddy-plus:${{ env.CADDY_VERSION }}-bouncer-${{ env.BOUNCER_VERSION }}-cf-${{ env.CF_VERSION }}-proxy-${{ env.PROXY_VERSION }}-oidc-${{ env.OAUTH_VERSION }}`
             - Caddy: https://github.com/caddyserver/caddy/releases/tag/v${{ env.CADDY_VERSION }}
             - Bouncer: https://github.com/hslatman/caddy-crowdsec-bouncer/releases/tag/v${{ env.BOUNCER_VERSION }}
             - Docker-Proxy: https://github.com/lucaslorentz/caddy-docker-proxy/releases/tag/v${{ env.PROXY_VERSION }}
