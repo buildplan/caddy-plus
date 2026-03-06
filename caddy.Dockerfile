@@ -2,6 +2,9 @@
 ARG GO_VERSION=1.25
 ARG CADDY_VERSION=2
 ARG OAUTH_VERSION=7.14.2
+ARG PROXY_VERSION
+ARG BOUNCER_VERSION
+ARG CF_VERSION
 
 # --- Stage 1: Builder (Caddy + Plugins) ---
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS builder
@@ -60,6 +63,6 @@ CMD ["supervisord", "-c", "/etc/supervisord.conf"]
 
 # Metadata
 LABEL org.opencontainers.image.title="caddy-plus" \
-      org.opencontainers.image.description="Custom Caddy with CrowdSec, OAuth2 Proxy, Caddy-Docker-Proxy ,Cloudflare DNS, and Cloudflare IP Source" \
+      org.opencontainers.image.description="Custom Caddy with CrowdSec, OAuth2 Proxy, Caddy-Docker-Proxy, Cloudflare DNS, and Cloudflare IP Source" \
       org.opencontainers.image.source="https://github.com/buildplan/caddy-plus" \
-      org.opencontainers.image.version="${CADDY_VERSION}-oidc${OAUTH_VERSION}-b${BOUNCER_VERSION}-cf${CF_VERSION}"
+      org.opencontainers.image.version="${CADDY_VERSION}-oidc${OAUTH_VERSION}-b${BOUNCER_VERSION}-cf${CF_VERSION}-p${PROXY_VERSION}"
