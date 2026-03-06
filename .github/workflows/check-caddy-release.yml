@@ -20,15 +20,26 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get Upstream Caddy Version
+          # Get Upstream Caddy Version from GitHub
           UPSTREAM_TAG=$(gh api /repos/caddyserver/caddy/releases/latest --jq .tag_name)
-          echo "Upstream is: $UPSTREAM_TAG"
-          # Check if there's already a released tag starting with this version.
+          CADDY_VERSION=$(echo "${UPSTREAM_TAG}" | sed 's/^v//')
+          echo "Upstream GitHub is: $UPSTREAM_TAG"
+
+          # Check if the image actually exists on Docker Hub
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://hub.docker.com/v2/repositories/library/caddy/tags/${CADDY_VERSION}-alpine")
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Release ${UPSTREAM_TAG} found on GitHub, but not yet published to Docker Hub. Skipping until tomorrow."
+            echo "trigger=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check if we have already built this version.
           if gh release list --json tagName --jq '.[].tagName' | grep -q "^${UPSTREAM_TAG}-"; then
             echo "Release for ${UPSTREAM_TAG} already exists in this repo. Skipping."
             echo "trigger=false" >> $GITHUB_OUTPUT
           else
-            echo "New upstream release ${UPSTREAM_TAG} found! Triggering build."
+            echo "New upstream release ${UPSTREAM_TAG} found and verified on Docker Hub! Triggering build."
             echo "trigger=true" >> $GITHUB_OUTPUT
           fi
 
