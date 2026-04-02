@@ -17,6 +17,7 @@ on:
 permissions:
   contents: write
   packages: write
+  security-events: write
 
 jobs:
   build-and-push:
@@ -155,6 +156,28 @@ jobs:
             - OAuth2 Proxy: https://github.com/oauth2-proxy/oauth2-proxy/releases/tag/v${{ env.OAUTH_VERSION }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          image-ref: 'ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.CADDY_VERSION }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+      
+      - name: Run Trivy to submit SBOM to Dependency Graph
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          image-ref: 'ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.CADDY_VERSION }}'
+          format: 'github'
+          output: 'dependency-results.sbom.json'
+          github-pat: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Clean up old GHCR images
         uses: quartx-analytics/ghcr-cleaner@v1
