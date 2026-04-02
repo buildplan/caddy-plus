@@ -44,8 +44,9 @@ ARG BOUNCER_VERSION
 ARG CF_VERSION
 ARG OAUTH_VERSION
 
-# Install dependencies
-RUN apk add --no-cache ca-certificates tzdata mailcap python3 py3-pip && \
+# Install dependencies and patch OS vulnerabilities
+RUN apk upgrade --no-cache && \
+    apk add --no-cache ca-certificates tzdata mailcap python3 py3-pip && \
     pip install supervisor --break-system-packages --no-cache-dir && \
     apk del py3-pip
 
