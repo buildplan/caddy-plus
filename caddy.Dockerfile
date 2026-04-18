@@ -38,7 +38,6 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --with github.com/smallstep/certificates/ca@latest \
     --with github.com/go-jose/go-jose/v3@latest \
     --with github.com/go-jose/go-jose/v4@latest \
-    --with github.com/docker/docker/client@master \
     --with go.opentelemetry.io/otel@latest \
     --with go.opentelemetry.io/otel/sdk@latest \
     --with go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp@latest \
