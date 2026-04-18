@@ -23,14 +23,27 @@ RUN apk add --no-cache git && \
 
 WORKDIR /app
 
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} xcaddy build v${CADDY_VERSION} \
+# Run xcaddy with BuildKit caching AND vulnerability fixes
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} xcaddy build v${CADDY_VERSION} \
     --output /go/bin/caddy \
     --with github.com/lucaslorentz/caddy-docker-proxy/v2@v${PROXY_VERSION} \
     --with github.com/hslatman/caddy-crowdsec-bouncer/appsec@v${BOUNCER_VERSION} \
     --with github.com/hslatman/caddy-crowdsec-bouncer/http@v${BOUNCER_VERSION} \
     --with github.com/hslatman/caddy-crowdsec-bouncer/layer4@v${BOUNCER_VERSION} \
     --with github.com/caddy-dns/cloudflare@v${CF_VERSION} \
-    --with github.com/WeidiDeng/caddy-cloudflare-ip
+    --with github.com/WeidiDeng/caddy-cloudflare-ip \
+    --with google.golang.org/grpc@latest \
+    --with github.com/smallstep/certificates@latest \
+    --with github.com/go-jose/go-jose/v3@latest \
+    --with github.com/go-jose/go-jose/v4@latest \
+    --with github.com/docker/docker@latest \
+    --with go.opentelemetry.io/otel@latest \
+    --with go.opentelemetry.io/otel/sdk@latest \
+    --with go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp@latest \
+    --with go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp@latest \
+    --with go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp@latest
 
 # --- Stage 2: Oauth2-Proxy Source ---
 FROM quay.io/oauth2-proxy/oauth2-proxy:v${OAUTH_VERSION} AS oauth_source
