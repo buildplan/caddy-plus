@@ -37,12 +37,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --with google.golang.org/grpc@latest \
     --with github.com/smallstep/certificates/ca@latest \
     --with github.com/go-jose/go-jose/v3@latest \
-    --with github.com/go-jose/go-jose/v4@latest \
-    --with go.opentelemetry.io/otel@latest \
-    --with go.opentelemetry.io/otel/sdk@latest \
-    --with go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp@latest \
-    --with go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp@latest \
-    --with go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp@latest
+    --with github.com/go-jose/go-jose/v4@latest
 
 # --- Stage 2: Oauth2-Proxy Source ---
 FROM quay.io/oauth2-proxy/oauth2-proxy:v${OAUTH_VERSION} AS oauth_source
