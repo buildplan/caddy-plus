@@ -457,8 +457,6 @@ CADDY_DOCKER_SCAN_STOPPED_CONTAINERS=<bool>
 CADDY_DOCKER_NO_SCOPE=<bool, default scope used>
 ```
 
-
-
 #### Troubleshooting "502 Bad Gateway"
 
 * **Check AppSec:** Did you skip Step 5? If `appsec` label is used but the listener isn't running, Caddy drops the connection.
