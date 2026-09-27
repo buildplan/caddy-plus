@@ -5,6 +5,7 @@ ARG OAUTH_VERSION=7.15.3
 ARG PROXY_VERSION
 ARG BOUNCER_VERSION
 ARG CF_VERSION
+ARG RATELIMIT_VERSION
 
 # --- Stage 1: Builder (Caddy + Plugins) ---
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS builder
@@ -14,6 +15,7 @@ ARG CADDY_VERSION
 ARG PROXY_VERSION
 ARG BOUNCER_VERSION
 ARG CF_VERSION
+ARG RATELIMIT_VERSION
 ARG TARGETARCH
 ARG TARGETOS
 
@@ -34,6 +36,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --with github.com/hslatman/caddy-crowdsec-bouncer/layer4@v${BOUNCER_VERSION} \
     --with github.com/caddy-dns/cloudflare@v${CF_VERSION} \
     --with github.com/WeidiDeng/caddy-cloudflare-ip \
+    --with github.com/mholt/caddy-ratelimit@${RATELIMIT_VERSION} \
     --with google.golang.org/grpc@latest \
     --with github.com/smallstep/certificates/ca@latest \
     --with github.com/go-jose/go-jose/v3@latest \
@@ -50,6 +53,7 @@ ARG PROXY_VERSION
 ARG BOUNCER_VERSION
 ARG CF_VERSION
 ARG OAUTH_VERSION
+ARG RATELIMIT_VERSION
 
 # Install dependencies and patch OS vulnerabilities
 RUN apk upgrade --no-cache && \
@@ -73,4 +77,4 @@ CMD ["supervisord", "-c", "/etc/supervisord.conf"]
 LABEL org.opencontainers.image.title="caddy-plus" \
       org.opencontainers.image.description="Custom Caddy with CrowdSec, OAuth2 Proxy, Caddy-Docker-Proxy, Cloudflare DNS, and Cloudflare IP Source" \
       org.opencontainers.image.source="https://github.com/buildplan/caddy-plus" \
-      org.opencontainers.image.version="${CADDY_VERSION}-oidc${OAUTH_VERSION}-b${BOUNCER_VERSION}-cf${CF_VERSION}-p${PROXY_VERSION}"
+      org.opencontainers.image.version="${CADDY_VERSION}-oidc${OAUTH_VERSION}-b${BOUNCER_VERSION}-cf${CF_VERSION}-p${PROXY_VERSION}-rl${RATELIMIT_VERSION}"
