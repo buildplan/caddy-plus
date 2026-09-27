@@ -5,6 +5,7 @@
 [![Docker Proxy](https://img.shields.io/badge/Docker-Proxy-blue?style=flat&logo=docker&logoColor=white)](https://github.com/lucaslorentz/caddy-docker-proxy)
 [![Cloudflare DNS](https://img.shields.io/badge/Cloudflare-DNS-F38020?style=flat&logo=cloudflare&logoColor=white)](https://github.com/caddy-dns/cloudflare)
 [![OAuth2 Proxy](https://img.shields.io/badge/OAuth2-Proxy-green?style=flat&logo=openid&logoColor=white)](https://github.com/oauth2-proxy/oauth2-proxy)
+[![Caddy Rate Limit](https://img.shields.io/badge/Caddy-Rate%20Limit-purple?style=flat&logo=caddy&logoColor=white)](https://github.com/mholt/caddy-ratelimit)
 
 [![Build and Push Caddy-plus](https://github.com/buildplan/caddy-plus/actions/workflows/build-and-push.yml/badge.svg)](https://github.com/buildplan/caddy-plus/actions/workflows/build-and-push.yml)
 
@@ -165,7 +166,7 @@ services:
       caddy_2: "(rate_limit)"
       caddy_2.rate_limit: ""
       caddy_2.rate_limit.zone: "edge_zone"
-      caddy_2.rate_limit.zone.key: "{remote_host}"
+      caddy_2.rate_limit.zone.key: "{header.CF-Connecting-IP}"
       caddy_2.rate_limit.zone.events: "100"
       caddy_2.rate_limit.zone.window: "1m"
 
@@ -352,6 +353,60 @@ docker exec caddy supervisorctl status
 # caddy            RUNNING   pid 7, uptime 0:05:00
 # oauth2-proxy     RUNNING   pid 8, uptime 0:05:00
 ```
+
+---
+
+## Rate Limiting Configuration
+
+The `caddy-plus` image includes an advanced sliding-window rate limiter designed to drop malicious traffic (like scrapers or brute-force attacks) before it consumes backend resources.
+
+By default, the global `docker-compose.yml` snippet (from Step 2) looks like this:
+
+```yaml
+      # 6. Define Reusable Snippet: (rate_limit)
+      caddy_2: "(rate_limit)"
+      caddy_2.rate_limit: ""
+      caddy_2.rate_limit.zone: "edge_zone"
+      caddy_2.rate_limit.zone.key: "{header.CF-Connecting-IP}"
+      caddy_2.rate_limit.zone.events: "100"
+      caddy_2.rate_limit.zone.window: "1m"
+```
+
+### Cloudflare vs Direct Routing
+
+**If you use Cloudflare Proxy (Orange Cloud):**
+
+You **must** use `caddy_2.rate_limit.zone.key: "{header.CF-Connecting-IP}"` (as shown above). If you don't, Caddy will track Cloudflare's Edge node IPs instead of the real users, meaning anyone sharing the same Edge node will trigger the rate limit and get blocked!
+
+**If you DO NOT use Cloudflare:**
+
+If your server receives traffic directly, change the key to track the remote connection IP:
+
+```yaml
+      caddy_2.rate_limit.zone.key: "{remote_host}"
+```
+
+### Advanced Options
+
+You can add extra labels to fine-tune the rate limiter:
+
+* **Prevent IPv6 Subnet Abuse:** Group all IPv6 addresses in a `/64` subnet together so attackers can't cycle through millions of IPs to bypass limits.
+
+  ```yaml
+        caddy_2.rate_limit.zone.ipv6_prefix: "64"
+  ```
+
+* **Filter by Method (e.g., Login endpoints):** Only rate limit `POST` requests.
+
+  ```yaml
+        caddy_2.rate_limit.zone.match.method: "POST"
+  ```
+
+* **Distributed Limits (Swarm/K8s):** If you run multiple Caddy replicas sharing the same storage, this syncs rate limit state across all your nodes!
+
+  ```yaml
+        caddy_2.rate_limit.distributed: ""
+  ```
 
 ---
 
