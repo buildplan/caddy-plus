@@ -34,6 +34,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --with github.com/hslatman/caddy-crowdsec-bouncer/layer4@v${BOUNCER_VERSION} \
     --with github.com/caddy-dns/cloudflare@v${CF_VERSION} \
     --with github.com/WeidiDeng/caddy-cloudflare-ip \
+    --with github.com/mholt/caddy-ratelimit \
     --with google.golang.org/grpc@latest \
     --with github.com/smallstep/certificates/ca@latest \
     --with github.com/go-jose/go-jose/v3@latest \

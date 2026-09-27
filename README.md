@@ -16,7 +16,8 @@ A fully automated, secure reverse proxy stack in a single Docker image.
 2. **[Caddy Docker Proxy:](https://github.com/lucaslorentz/caddy-docker-proxy)** Auto-generates Caddy configuration from Docker labels (no manual Caddyfile editing).
 3. **[CrowdSec Bouncer:](https://github.com/hslatman/caddy-crowdsec-bouncer)** Adds IP blocking and a Web Application Firewall (WAF) to every site you host.
 4. **[Cloudflare DNS:](https://github.com/caddy-dns/cloudflare)** Enables DNS-01 challenges for Wildcard SSL certificates and internal servers.
-5. **[OAuth2 Proxy (OIDC):](https://oauth2-proxy.github.io/oauth2-proxy/)** Provides a "Zero Trust" authentication layer (SSO) for your applications using providers like PocketID, Google, or GitHub.
+5. **[Caddy Rate Limit:](https://github.com/mholt/caddy-ratelimit)** Advanced rate limiting at the edge to protect against abuse.
+6. **[OAuth2 Proxy (OIDC):](https://oauth2-proxy.github.io/oauth2-proxy/)** Provides a "Zero Trust" authentication layer (SSO) for your applications using providers like PocketID, Google, or GitHub.
 
 The image is automatically rebuilt and updated on GHCR whenever there is a new release of Caddy or any of its plugins.
 
@@ -28,7 +29,8 @@ This setup provides a fully automated, secure reverse proxy stack managed by **S
 2. **Dynamic Config (`caddy-docker-proxy`):** Caddy connects to the Docker socket. When you launch a new container with specific labels, Caddy automatically provisions SSL certificates and routes traffic.
 3. **IP Blocker (`crowdsec`):** Acts like a front-desk security guard. It checks the IP of every visitor against CrowdSec's global blocklist.
 4. **WAF (`appsec`):** Inspects the *content* of requests to block SQL injection, XSS, and known exploits.
-5. **Authentication (`forward_auth`):** If enabled via labels, Caddy pauses the request, asks `oauth2-proxy` if the user is logged in, and redirects them to your Identity Provider (IdP) if they are not.
+5. **Rate Limiter (`rate_limit`):** Prevents abuse by limiting how many requests a user or IP can make in a given timeframe using advanced sliding-window algorithms.
+6. **Authentication (`forward_auth`):** If enabled via labels, Caddy pauses the request, asks `oauth2-proxy` if the user is logged in, and redirects them to your Identity Provider (IdP) if they are not.
 
 ## How to Use This Image
 
@@ -158,6 +160,15 @@ services:
       caddy_1.handle.reverse_proxy.header_up_0: "X-Real-IP {remote_host}"
       caddy_1.handle.reverse_proxy.header_up_1: "X-Forwarded-Uri {uri}"
 
+      # 6. Define Reusable Snippet: (rate_limit)
+      # This snippet adds sliding-window rate limiting (e.g. 100 reqs / 1 min per IP)
+      caddy_2: "(rate_limit)"
+      caddy_2.rate_limit: ""
+      caddy_2.rate_limit.zone: "edge_zone"
+      caddy_2.rate_limit.zone.key: "{remote_host}"
+      caddy_2.rate_limit.zone.events: "100"
+      caddy_2.rate_limit.zone.window: "1m"
+
   crowdsec:
     image: crowdsecurity/crowdsec:latest
     container_name: crowdsec
@@ -266,6 +277,8 @@ services:
       caddy.import_0: "cloudflare_tls"
       # This enables OIDC Authentication
       caddy.import_1: "oidc"
+      # This enables Rate Limiting
+      caddy.import_2: "rate_limit"
       
       # 3. Enable Logging (REQUIRED for CrowdSec)
       caddy.log.output: "file /var/log/caddy/access.log"
@@ -346,10 +359,10 @@ docker exec caddy supervisorctl status
 
 ### View the Generated Caddyfile
 
-Since the configuration is generated in-memory via Docker labels, you can't open a file to check it. Use this command to see what Caddy is actually using:
+To see exactly what Caddy configuration is being generated from your Docker labels (useful for debugging), run:
 
 ```bash
-docker logs caddy 2>&1 | grep "New Caddyfile" | tail -n 1 | sed 's/.*"caddyfile":"//' | sed 's/"}$//' | sed 's/\\n/\n/g' | sed 's/\\t/\t/g'
+docker exec caddy cat /config/caddy/Caddyfile.autosave
 ```
 
 ### CLI Options
@@ -444,6 +457,8 @@ CADDY_DOCKER_SCAN_STOPPED_CONTAINERS=<bool>
 CADDY_DOCKER_NO_SCOPE=<bool, default scope used>
 ```
 
+
+
 #### Troubleshooting "502 Bad Gateway"
 
 * **Check AppSec:** Did you skip Step 5? If `appsec` label is used but the listener isn't running, Caddy drops the connection.
@@ -458,6 +473,7 @@ CADDY_DOCKER_NO_SCOPE=<bool, default scope used>
 * **[CrowdSec Bouncer](https://github.com/hslatman/caddy-crowdsec-bouncer):** Security module for Caddy.
 * **[Cloudflare DNS](https://github.com/caddy-dns/cloudflare):** DNS provider for solving ACME challenges.
 * **[Cloudflare IP](https://github.com/WeidiDeng/caddy-cloudflare-ip):** Real visitor IP restoration when behind Cloudflare Proxy.
+* **[Caddy Rate Limit](https://github.com/mholt/caddy-ratelimit):** Advanced sliding-window rate limiting.
 * **[OAuth2 Proxy](https://oauth2-proxy.github.io/oauth2-proxy/):** Identity aware proxy for OIDC authentication.
 
 ## Credits & Licenses
@@ -471,6 +487,7 @@ It integrates the following open-source software, which are gratefully acknowled
 * **[Caddy Docker Proxy](https://github.com/lucaslorentz/caddy-docker-proxy)** - MIT License
 * **[CrowdSec Caddy Bouncer](https://github.com/hslatman/caddy-crowdsec-bouncer)** - Apache 2.0
 * **[Caddy Cloudflare DNS](https://github.com/caddy-dns/cloudflare)** - Apache 2.0
+* **[Caddy Rate Limit](https://github.com/mholt/caddy-ratelimit)** - Apache 2.0
 * **[Supervisor](https://github.com/Supervisor/supervisor)** - Supervisor License (BSD-like)
 
 *For full license text, please visit the respective repositories linked above.*
