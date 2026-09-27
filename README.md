@@ -420,6 +420,20 @@ To see exactly what Caddy configuration is being generated from your Docker labe
 docker exec caddy cat /config/caddy/Caddyfile.autosave
 ```
 
+### Verify Rate Limiting
+
+To test if your rate limiter is correctly blocking traffic, you can use a simple bash loop.
+
+**Important:** If you are behind Cloudflare, you must append a random query parameter (`?t=$i`) to bypass Cloudflare's edge cache. Otherwise, Cloudflare will serve cached `200 OK` responses and the requests might not reach Caddy!
+
+Temporarily lower your `events` limit in `docker-compose.yml` (e.g., to `5`), run `docker compose up -d`, and execute this loop:
+
+```bash
+for i in {1..15}; do curl -s -o /dev/null -w "Request $i: %{http_code}\n" "https://your.domain.com/?t=$i" ; done
+```
+
+You should see the first few requests return `200` (Allowed), and the remaining requests instantly return `429` (Too Many Requests).
+
 ### CLI Options
 
 #### CrowdSec
