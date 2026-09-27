@@ -192,7 +192,7 @@ jobs:
           github-pat: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Clean up old GHCR images
-        uses: quartx-analytics/ghcr-cleaner@v1
+        uses: buildplan/ghcr-cleaner@v1
         with:
           owner-type: user
           token: ${{ secrets.PAT_TOKEN }}
